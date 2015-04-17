@@ -26438,7 +26438,7 @@ var Repo = React.createClass({ displayName: 'Repo',
       return React.createElement(Panel, { header: this.renderTitle() }, 'No recent activity');
     } else {
       return React.createElement(Panel, { header: this.renderTitle() }, React.createElement(ListGroup, { fill: true }, repo._events.map(function (evnt) {
-        return React.createElement(RepoEvent, { evnt: evnt, key: evnt.id });
+        return React.createElement(RepoEvent, { repo: repo, evnt: evnt, key: evnt.id });
       })));
     }
   }
@@ -26565,6 +26565,18 @@ var RepoEvent = React.createClass({ displayName: 'RepoEvent',
     return str;
   },
 
+  getWikiUrl: function getWikiUrl() {
+    var evnt = this.props.evnt;
+
+    return this.getRepoUrl() + '/wiki/' + evnt.payload.pages[0].pageName;
+  },
+
+  getRepoUrl: function getRepoUrl() {
+    var repo = this.props.repo;
+
+    return 'https://github.com/' + repo.fullName;
+  },
+
   render: function render() {
     var evnt = this.props.evnt;
 
@@ -26602,7 +26614,7 @@ var RepoEvent = React.createClass({ displayName: 'RepoEvent',
         break;
 
       case 'GollumEvent':
-        return React.createElement(ListGroupItem, null, React.createElement('div', { className: 'ellipsis' }, React.createElement('a', { href: this.getActorUrl() }, evnt.actor.login), ' ', evnt.payload.pages[0].action, ' wiki page ', React.createElement('strong', null, evnt.payload.pages[0].title)));
+        return React.createElement(ListGroupItem, null, React.createElement('div', { className: 'ellipsis' }, React.createElement('a', { href: this.getActorUrl() }, evnt.actor.login), ' ', evnt.payload.pages[0].action, ' wiki ', React.createElement('a', { href: this.getWikiUrl() }, evnt.payload.pages[0].title)));
         break;
 
       case 'WatchEvent':

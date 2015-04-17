@@ -26360,9 +26360,6 @@ var App = React.createClass({ displayName: 'App',
       RepoStore: RepoStore.getAll(),
       tasks: TodoStore.getAll()
     });
-
-    var dataJSON = JSON.stringify(this.state);
-    console.warn('total data size', dataJSON.length / 1024, 'KB');
   },
 
   componentDidMount: function componentDidMount() {
@@ -26442,10 +26439,10 @@ var Repo = React.createClass({ displayName: 'Repo',
     var repo = this.props.repo;
 
     if (repo._tooOld) {
-      return React.createElement(Panel, { header: this.renderTitle() }, 'Not active in last 7 days');
+      return React.createElement(Panel, { header: this.renderTitle() }, 'No recent activity');
     } else {
       return React.createElement(Panel, { header: this.renderTitle() }, React.createElement(ListGroup, { fill: true }, repo._events.map(function (evnt) {
-        return React.createElement(RepoEvent, { evnt: evnt });
+        return React.createElement(RepoEvent, { evnt: evnt, key: evnt.id });
       })));
     }
   }
@@ -26550,6 +26547,7 @@ var RepoEvent = React.createClass({ displayName: 'RepoEvent',
     var str = evnt.payload.comment.url;
     //https://api.github.com/repos/Starcounter-Jack/JSON-Patch/issues/comments/91527097
     str = str.replace('https://api.github.com/repos', 'https://github.com');
+    str = str.replace('comments/', evnt.payload.issue.number + '#issuecomment-');
     return str;
   },
 
@@ -26607,6 +26605,10 @@ var RepoEvent = React.createClass({ displayName: 'RepoEvent',
         return React.createElement(ListGroupItem, null, React.createElement('div', { className: 'ellipsis' }, React.createElement('a', { href: this.getActorUrl() }, evnt.actor.login), ' ', evnt.payload.action, ' release ', evnt.payload.release.tagName));
         break;
 
+      case 'GollumEvent':
+        return React.createElement(ListGroupItem, null, React.createElement('div', { className: 'ellipsis' }, React.createElement('a', { href: this.getActorUrl() }, evnt.actor.login), ' ', evnt.payload.pages[0].action, ' wiki page ', React.createElement('strong', null, evnt.payload.pages[0].title)));
+        break;
+
       case 'WatchEvent':
       case 'ForkEvent':
         //ignore
@@ -26646,7 +26648,7 @@ var RepoList = React.createClass({ displayName: 'RepoList',
     }
 
     return React.createElement('div', { className: 'repo-grid' }, repos.map(function (repo) {
-      return React.createElement('div', { className: 'repo-grid-item' }, React.createElement(Repo, { repo: repo }));
+      return React.createElement('div', { className: 'repo-grid-item', key: repo.id }, React.createElement(Repo, { repo: repo }));
     }));
   }
 });
@@ -26805,7 +26807,8 @@ var Octokat = require('octokat');
 var moment = require('moment');
 
 // data storage
-var _repos = [];
+var _storedRepos = window.localStorage.getItem('repos');
+var _repos = _storedRepos ? JSON.parse(_storedRepos) : [];
 var _orgs = [];
 var _err = null;
 var _token = window.localStorage.getItem('gh_token');
@@ -26820,8 +26823,15 @@ var ORGS_PER_PAGE = 100; //can be safely changed to 100
 var EVENTS_PER_PAGE = 5; //can be safely changed to 100
 
 function compare(a, b) {
-  var diff = a._updatedAt.diff(b._updatedAt);
-  return -diff;
+  var adate = a._events.length ? a._events[0].createdAt : a.updatedAt;
+  var bdate = b._events.length ? b._events[0].createdAt : b.updatedAt;
+
+  if (adate > bdate) {
+    return -1;
+  } else if (adate < bdate) {
+    return 1;
+  }
+  return 0;
 }
 
 function getAllRepos(res) {
@@ -26834,30 +26844,49 @@ function getAllRepos(res) {
   _err = null;
 
   res.forEach(function (repo) {
-    repo._updatedAt = moment(repo.updatedAt);
+    repo.updatedAt = repo.updatedAt.toISOString();
+    var _updatedAt = moment(repo.updatedAt);
 
-    var days = now.diff(repo._updatedAt, 'days');
-    if (days > 1) {
+    var found;
+    for (var i = 0; i < _repos.length; i++) {
+      if (_repos[i].id === repo.id) {
+        found = _repos[i];
+        break;
+      }
+    }
+
+    if (found) {
+      if (repo.updatedAt == found.updatedAt) {
+        return;
+      } else {
+        _repos[i] = repo;
+      }
+    } else {
+      _repos.push(repo);
+    }
+
+    if (!repo._events) {
+      repo._events = [];
+    }
+
+    var days = now.diff(_updatedAt, 'days');
+    if (days > 7) {
       repo._tooOld = true;
       return;
     }
 
-    repo._events = [];
     repo.events.fetch({
       per_page: EVENTS_PER_PAGE
     }).then(function (events) {
       repo._events = events;
-      RepoStore.emitChange();
+      completeAllData();
     });
   });
-
-  _repos = _repos.concat(res);
 
   if (res.nextPage) {
     res.nextPage().then(getAllRepos);
   } else {
-    _repos.sort(compare);
-    RepoStore.emitChange();
+    completeAllRepos();
   }
 }
 
@@ -26872,8 +26901,25 @@ function getAllOrgs(res) {
   if (res.nextPage) {
     res.nextPage().then(getAllOrgs);
   } else {
-    _repos.sort(compare);
-    RepoStore.emitChange();
+    completeAllRepos();
+  }
+}
+
+function completeAllRepos() {
+  _repos.sort(compare);
+  completeAllData();
+}
+
+var lastSize = 0;
+function completeAllData() {
+  var str = JSON.stringify(_repos);
+  window.localStorage.setItem('repos', str);
+  RepoStore.emitChange();
+
+  var size = parseInt(str.length / 1024, 10);
+  if (size != lastSize) {
+    console.warn('total data size', size, 'KB');
+    lastSize = size;
   }
 }
 

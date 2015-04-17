@@ -26345,11 +26345,7 @@ var App = React.createClass({ displayName: 'App',
 
   getInitialState: function getInitialState() {
     var data = {
-      RepoStore: {
-        token: '',
-        repos: [],
-        err: null
-      },
+      RepoStore: RepoStore.getAll(),
       tasks: []
     };
     return data;
@@ -26644,7 +26640,7 @@ var RepoList = React.createClass({ displayName: 'RepoList',
     var repos = this.props.repos;
 
     if (repos.length === 0) {
-      return React.createElement(Alert, { bsStyle: 'warning' }, React.createElement('strong', null, 'You have no repos'));
+      return React.createElement(Alert, { bsStyle: 'warning' }, React.createElement('strong', null, 'Loading repos'));
     }
 
     return React.createElement('div', { className: 'repo-grid' }, repos.map(function (repo) {
@@ -26855,24 +26851,24 @@ function getAllRepos(res) {
       }
     }
 
-    if (found) {
-      if (repo.updatedAt == found.updatedAt) {
-        return;
-      } else {
-        _repos[i] = repo;
-      }
-    } else {
-      _repos.push(repo);
+    var days = now.diff(_updatedAt, 'days');
+    if (days > 7) {
+      repo._tooOld = true;
+      return;
     }
 
     if (!repo._events) {
       repo._events = [];
     }
 
-    var days = now.diff(_updatedAt, 'days');
-    if (days > 7) {
-      repo._tooOld = true;
-      return;
+    if (found) {
+      if (repo.updatedAt == found.updatedAt && found._events && found._events.length > 0 /*&& found._events[0].createdAt === repo.updatedAt*/) {
+        return;
+      } else {
+        _repos[i] = repo;
+      }
+    } else {
+      _repos.push(repo);
     }
 
     repo.events.fetch({

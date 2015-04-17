@@ -26394,7 +26394,7 @@ var App = React.createClass({ displayName: 'App',
       }
     }
 
-    return React.createElement('div', { className: 'container' }, React.createElement(Jumbotron, null, React.createElement('h1', null, 'Repolepsy'), React.createElement('p', null, 'Displaying recent events in all your repos')), React.createElement(RepoList, { repos: RepoStore.repos }));
+    return React.createElement('div', { className: 'container' }, React.createElement(Jumbotron, null, React.createElement('h1', null, 'Repolepsy'), React.createElement('p', null, 'Recent changes in all your repos, refreshed every 5 minutes (or when you press F5)')), React.createElement(RepoList, { repos: RepoStore.repos }));
   }
 
 });
@@ -26813,22 +26813,24 @@ var assign = require('object-assign');
 var Octokat = require('octokat');
 var moment = require('moment');
 
-// data storage
+// private data
 var _storedRepos = window.localStorage.getItem('repos');
 var _repos = _storedRepos ? JSON.parse(_storedRepos) : [];
 var _orgs = [];
 var _err = null;
-var _token = window.localStorage.getItem('gh_token');
+var _token = window.localStorage.getItem('gh_token') || '';
 var _lastToken = null;
+var refreshTimeout = undefined;
 
 // auth user
 var octo;
 
-//get user's repos
+//settings
 var REPOS_PER_PAGE = 100; //can be safely changed to 100
 var ORGS_PER_PAGE = 100; //can be safely changed to 100
 var EVENTS_PER_PAGE = 20;
 var MAX_EVENTS = 5; //max events to display
+var REFRESH_INTERVAL_MS = 5 * 60 * 1000; //5 minutes
 
 function compare(a, b) {
   var adate = a._events.length ? a._events[0].createdAt : a.updatedAt;
@@ -26942,10 +26944,12 @@ function completeAllData() {
 }
 
 function loadData() {
-  octo = new Octokat({
-    token: _token
-  });
-  _lastToken = _token;
+  if (_lastToken != _token) {
+    octo = new Octokat({
+      token: _token
+    });
+    _lastToken = _token;
+  }
 
   octo.user.repos.fetch({
     per_page: REPOS_PER_PAGE
@@ -26957,6 +26961,9 @@ function loadData() {
   octo.user.orgs.fetch({
     per_page: ORGS_PER_PAGE
   }).then(getAllOrgs);
+
+  clearTimeout(refreshTimeout);
+  refreshTimeout = setTimeout(loadData, REFRESH_INTERVAL_MS);
 }
 loadData();
 

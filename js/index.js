@@ -26926,12 +26926,12 @@ function getAllOrgs(res) {
 }
 
 function completeAllRepos() {
-  _repos.sort(compare);
   completeAllData();
 }
 
 var lastSize = 0;
 function completeAllData() {
+  _repos.sort(compare);
   var str = JSON.stringify(_repos);
   window.localStorage.setItem('repos', str);
   RepoStore.emitChange();

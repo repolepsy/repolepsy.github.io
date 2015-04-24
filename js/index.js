@@ -26922,6 +26922,7 @@ var ActionCreator = require('../actions/RepoActionCreators');
 var Repo = React.createClass({ displayName: 'Repo',
   getInitialState: function getInitialState() {
     return {
+      lastUpdatedAt: '',
       repo: {
         name: '',
         _events: []
@@ -26930,14 +26931,13 @@ var Repo = React.createClass({ displayName: 'Repo',
   },
 
   shouldComponentUpdate: function shouldComponentUpdate(nextProps, nextState) {
-    if (nextProps.repo && nextProps.repo._events && nextProps.repo._events[0] && nextProps.repo._events[0].createdAt) {
-      if (this.props.repo && this.props.repo._events && this.props.repo._events[0] && this.props.repo._events[0].createdAt) {
-        if (nextProps.repo._events[0].createdAt == this.props.repo._events[0].createdAt) {
-          return false;
-        }
-      }
-    }
-    return true;
+    return this.state.lastUpdatedAt != nextProps.repo.updatedAt;
+  },
+
+  componentDidUpdate: function componentDidUpdate() {
+    this.setState({
+      lastUpdatedAt: this.props.repo.updatedAt
+    });
   },
 
   componentDidMount: function componentDidMount() {},
@@ -27127,6 +27127,11 @@ var RepoEvent = React.createClass({ displayName: 'RepoEvent',
     return 'https://github.com/' + repo.fullName;
   },
 
+  getAvatar: function getAvatar(actor) {
+    var url = 'https://avatars2.githubusercontent.com/u/' + actor.id;
+    return React.createElement('a', { title: actor.login, href: this.getActorUrl() }, React.createElement('img', { className: 'avatar', src: url }));
+  },
+
   escapeChars: function escapeChars(txt) {
     return txt.replace(/\:\//, ': /');
   },
@@ -27134,45 +27139,47 @@ var RepoEvent = React.createClass({ displayName: 'RepoEvent',
   render: function render() {
     var evnt = this.props.evnt;
 
+    var avatar = this.getAvatar(evnt.actor);
+
     switch (evnt.type) {
       case 'PushEvent':
         if (evnt.payload.commits && evnt.payload.commits.length) {
-          return React.createElement(ListGroupItem, null, React.createElement('div', { className: 'ellipsis' }, React.createElement('a', { href: this.getActorUrl() }, evnt.actor.login), ' pushed to ', React.createElement('strong', null, this.getBranchName(evnt.payload.ref)), ': ', React.createElement('a', { href: this.getCommitUrl() }, evnt.payload.commits[0].message)));
+          return React.createElement(ListGroupItem, null, React.createElement('div', { className: 'ellipsis' }, avatar, ' pushed to ', React.createElement('strong', null, this.getBranchName(evnt.payload.ref)), ': ', React.createElement('a', { href: this.getCommitUrl() }, evnt.payload.commits[0].message)));
         } else {
-          return React.createElement(ListGroupItem, null, React.createElement('div', { className: 'ellipsis' }, React.createElement('a', { href: this.getActorUrl() }, evnt.actor.login), ' pushed something'));
+          return React.createElement(ListGroupItem, null, React.createElement('div', { className: 'ellipsis' }, avatar, ' pushed something'));
         }
         break;
 
       case 'IssueCommentEvent':
-        return React.createElement(ListGroupItem, null, React.createElement('div', { className: 'ellipsis' }, React.createElement('a', { href: this.getActorUrl() }, evnt.actor.login), ' ', evnt.payload.action, ' comment ', React.createElement('a', { href: this.getCommentUrl() }, this.emojify(this.escapeChars(evnt.payload.comment.body), { emojiType: 'emojione' }))));
+        return React.createElement(ListGroupItem, null, React.createElement('div', { className: 'ellipsis' }, avatar, ' ', evnt.payload.action, ' comment ', React.createElement('a', { href: this.getCommentUrl() }, this.emojify(this.escapeChars(evnt.payload.comment.body), { emojiType: 'emojione' }))));
         break;
 
       case 'IssuesEvent':
-        return React.createElement(ListGroupItem, null, React.createElement('div', { className: 'ellipsis' }, React.createElement('a', { href: this.getActorUrl() }, evnt.actor.login), ' ', evnt.payload.action, ' issue ', React.createElement('a', { href: this.getIssueUrl() }, evnt.payload.issue.title)));
+        return React.createElement(ListGroupItem, null, React.createElement('div', { className: 'ellipsis' }, avatar, ' ', evnt.payload.action, ' issue ', React.createElement('a', { href: this.getIssueUrl() }, evnt.payload.issue.title)));
         break;
 
       case 'PullRequestEvent':
-        return React.createElement(ListGroupItem, null, React.createElement('div', { className: 'ellipsis' }, React.createElement('a', { href: this.getActorUrl() }, evnt.actor.login), ' ', evnt.payload.action, ' PR ', React.createElement('a', { href: this.getPullRequestUrl() }, evnt.payload.pullRequest.title)));
+        return React.createElement(ListGroupItem, null, React.createElement('div', { className: 'ellipsis' }, avatar, ' ', evnt.payload.action, ' PR ', React.createElement('a', { href: this.getPullRequestUrl() }, evnt.payload.pullRequest.title)));
         break;
 
       case 'CreateEvent':
-        return React.createElement(ListGroupItem, null, React.createElement('div', { className: 'ellipsis' }, React.createElement('a', { href: this.getActorUrl() }, evnt.actor.login), ' created ', evnt.payload.refType, ' ', React.createElement('strong', null, evnt.payload.ref)));
+        return React.createElement(ListGroupItem, null, React.createElement('div', { className: 'ellipsis' }, avatar, ' created ', evnt.payload.refType, ' ', React.createElement('strong', null, evnt.payload.ref)));
         break;
 
       case 'DeleteEvent':
-        return React.createElement(ListGroupItem, null, React.createElement('div', { className: 'ellipsis' }, React.createElement('a', { href: this.getActorUrl() }, evnt.actor.login), ' deleted ', evnt.payload.refType, ' ', React.createElement('strong', null, evnt.payload.ref)));
+        return React.createElement(ListGroupItem, null, React.createElement('div', { className: 'ellipsis' }, avatar, ' deleted ', evnt.payload.refType, ' ', React.createElement('strong', null, evnt.payload.ref)));
         break;
 
       case 'ReleaseEvent':
-        return React.createElement(ListGroupItem, null, React.createElement('div', { className: 'ellipsis' }, React.createElement('a', { href: this.getActorUrl() }, evnt.actor.login), ' ', evnt.payload.action, ' release ', evnt.payload.release.tagName));
+        return React.createElement(ListGroupItem, null, React.createElement('div', { className: 'ellipsis' }, avatar, ' ', evnt.payload.action, ' release ', evnt.payload.release.tagName));
         break;
 
       case 'GollumEvent':
-        return React.createElement(ListGroupItem, null, React.createElement('div', { className: 'ellipsis' }, React.createElement('a', { href: this.getActorUrl() }, evnt.actor.login), ' ', evnt.payload.pages[0].action, ' wiki ', React.createElement('a', { href: this.getWikiUrl() }, evnt.payload.pages[0].title)));
+        return React.createElement(ListGroupItem, null, React.createElement('div', { className: 'ellipsis' }, avatar, ' ', evnt.payload.pages[0].action, ' wiki ', React.createElement('a', { href: this.getWikiUrl() }, evnt.payload.pages[0].title)));
         break;
 
       default:
-        return React.createElement(ListGroupItem, null, React.createElement('div', { className: 'ellipsis' }, React.createElement('a', { href: this.getActorUrl() }, evnt.actor.login), ' made ', evnt.type));
+        return React.createElement(ListGroupItem, null, React.createElement('div', { className: 'ellipsis' }, avatar, ' made ', evnt.type));
         break;
     }
   }
@@ -27392,7 +27399,7 @@ Object.values(_repos).forEach(function (repo) {
 var _orgs = [];
 var _err = null;
 var _token = window.localStorage.getItem('gh_token') || '';
-var _login = 'warpech';
+var _login = window.localStorage.getItem('gh_login') || '';
 var _ignoredRepos = window.localStorage.getItem('ignoredRepos') || [];
 var _lastToken = null;
 var refreshTimeout = undefined;
@@ -27432,10 +27439,15 @@ function getAllRepos(res) {
       _repos[found.fullName] = found;
     }
 
-    found.updatedAt = repo.updatedAt.toISOString();
-    found.pushedAt = repo.pushedAt.toISOString();
-    if (found.pushedAt > found.updatedAt) {
-      found.updatedAt = found.pushedAt;
+    repo.updatedAt = repo.updatedAt.toISOString();
+    repo.pushedAt = repo.pushedAt.toISOString();
+
+    if (repo.pushedAt > repo.updatedAt) {
+      repo.updatedAt = repo.pushedAt;
+    }
+
+    if (repo.updatedAt > found.updatedAt) {
+      found.updatedAt = repo.updatedAt;
     }
 
     updateRepoEvents(found);
@@ -27495,6 +27507,9 @@ function updateAllRepoEvents() {
 function updateRepoEvents(repo) {
   assureString(repo.updatedAt);
 
+  if (repo._loading) {
+    return;
+  }
   if (repo.lastUpdatedAt) {
     assureString(repo.lastUpdatedAt);
     if (repo.lastUpdatedAt >= repo.updatedAt) {
@@ -27565,6 +27580,14 @@ function loadData() {
     _lastToken = _token;
   }
 
+  if (!_login) {
+    octo.user.fetch().then(function (res) {
+      _login = res.login;
+      window.localStorage.setItem('gh_login', _login);
+      loadData();
+    });
+  }
+
   octo.user.repos.fetch({
     per_page: REPOS_PER_PAGE
   }).then(getAllRepos)['catch'](function (err) {
@@ -27572,13 +27595,19 @@ function loadData() {
     RepoStore.emitChange();
   });
 
-  octo.users(_login).receivedEvents.fetch({
-    per_page: USER_EVENTS_PER_PAGE
-  }).then(getAllEvents);
+  octo.user.orgs.fetch({
+    per_page: ORGS_PER_PAGE
+  }).then(getAllOrgs);
 
-  octo.users(_login).events.fetch({
-    per_page: USER_EVENTS_PER_PAGE
-  }).then(getAllEvents);
+  if (_login) {
+    octo.users(_login).receivedEvents.fetch({
+      per_page: USER_EVENTS_PER_PAGE
+    }).then(getAllEvents);
+
+    octo.users(_login).events.fetch({
+      per_page: USER_EVENTS_PER_PAGE
+    }).then(getAllEvents);
+  }
 
   clearTimeout(refreshTimeout);
   refreshTimeout = setTimeout(loadData, REFRESH_INTERVAL_MS);

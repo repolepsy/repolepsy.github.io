@@ -26784,18 +26784,17 @@ module.exports = {
     });
   },
 
-  ignoreRepo: function ignoreRepo(repo) {
-    console.log('ignoreRepo', repo);
+  toggleIgnoreRepo: function toggleIgnoreRepo(repo) {
     AppDispatcher.handleViewAction({
-      type: Constants.ActionTypes.IGNORE_REPO,
+      type: Constants.ActionTypes.TOGGLE_IGNORE_REPO,
       repo: repo
     });
   },
 
-  ignoreOrg: function ignoreOrg(repo) {
+  toggleIgnoreOrg: function toggleIgnoreOrg(org) {
     AppDispatcher.handleViewAction({
-      type: Constants.ActionTypes.IGNORE_ORG,
-      repo: repo
+      type: Constants.ActionTypes.TOGGLE_IGNORE_ORG,
+      org: org
     });
   }
 
@@ -26841,6 +26840,8 @@ module.exports = {
 
 var React = require('react');
 var RepoStore = require('../stores/RepoStore');
+var IgnoredReposStore = require('../stores/IgnoredReposStore');
+var IgnoredOrgsStore = require('../stores/IgnoredOrgsStore');
 var ActionCreator = require('../actions/RepoActionCreators');
 var Button = require('react-bootstrap/lib/Button');
 var Jumbotron = require('react-bootstrap/lib/Jumbotron');
@@ -26853,23 +26854,31 @@ var App = React.createClass({ displayName: 'App',
   getInitialState: function getInitialState() {
     var data = {
       refreshText: '5 minutes',
-      RepoStore: RepoStore.getAll()
+      RepoStore: RepoStore.getAll(),
+      IgnoredReposStore: IgnoredReposStore.getAll(),
+      IgnoredOrgsStore: IgnoredOrgsStore.getAll()
     };
     return data;
   },
 
   _onChange: function _onChange() {
     this.setState({
-      RepoStore: RepoStore.getAll()
+      RepoStore: RepoStore.getAll(),
+      IgnoredReposStore: IgnoredReposStore.getAll(),
+      IgnoredOrgsStore: IgnoredOrgsStore.getAll()
     });
   },
 
   componentDidMount: function componentDidMount() {
     RepoStore.addChangeListener(this._onChange);
+    IgnoredReposStore.addChangeListener(this._onChange);
+    IgnoredOrgsStore.addChangeListener(this._onChange);
   },
 
   componentWillUnmount: function componentWillUnmount() {
     RepoStore.removeChangeListener(this._onChange);
+    IgnoredReposStore.removeChangeListener(this._onChange);
+    IgnoredOrgsStore.removeChangeListener(this._onChange);
   },
 
   handleRefreshClick: function handleRefreshClick(e) {
@@ -26891,7 +26900,10 @@ var App = React.createClass({ displayName: 'App',
   },
 
   render: function render() {
-    var RepoStore = this.state.RepoStore;
+    var _state = this.state;
+    var RepoStore = _state.RepoStore;
+    var IgnoredReposStore = _state.IgnoredReposStore;
+    var IgnoredOrgsStore = _state.IgnoredOrgsStore;
 
     if (RepoStore.err) {
       if (RepoStore.err.message = 'Bad credentials') {
@@ -26901,18 +26913,20 @@ var App = React.createClass({ displayName: 'App',
       }
     }
 
-    return React.createElement('div', { className: 'container' }, React.createElement(Jumbotron, null, React.createElement('h1', null, 'Repolepsy'), React.createElement('p', null, 'Recent changes in all your repos, refreshed every ', React.createElement('a', { href: '/', className: 'refresh-repos', onMouseEnter: this.handleRefreshOver, onMouseLeave: this.handleRefreshOut, onClick: this.handleRefreshClick }, this.state.refreshText))), React.createElement(RepoList, { repos: RepoStore.repos }));
+    return React.createElement('div', { className: 'container' }, React.createElement(Jumbotron, null, React.createElement('h1', null, 'Repolepsy'), React.createElement('p', null, 'Recent changes in all your repos, refreshed every ', React.createElement('a', { href: '/', className: 'refresh-repos', onMouseEnter: this.handleRefreshOver, onMouseLeave: this.handleRefreshOut, onClick: this.handleRefreshClick }, this.state.refreshText))), React.createElement(RepoList, { repos: RepoStore.repos, orgs: RepoStore.orgs, ignoredRepos: IgnoredReposStore.ignoredRepos, ignoredOrgs: IgnoredOrgsStore.ignoredOrgs }));
   }
 
 });
 
 module.exports = App;
 
-},{"../actions/RepoActionCreators":200,"../stores/RepoStore":212,"./RepoError.jsx":204,"./RepoList.jsx":206,"./TaskList.jsx":208,"react":199,"react-bootstrap/lib/Button":22,"react-bootstrap/lib/Jumbotron":31}],203:[function(require,module,exports){
+},{"../actions/RepoActionCreators":200,"../stores/IgnoredOrgsStore":212,"../stores/IgnoredReposStore":213,"../stores/RepoStore":214,"./RepoError.jsx":204,"./RepoList.jsx":206,"./TaskList.jsx":208,"react":199,"react-bootstrap/lib/Button":22,"react-bootstrap/lib/Jumbotron":31}],203:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
 var Panel = require('react-bootstrap/lib/Panel');
+var IgnoredReposStore = require('../stores/IgnoredReposStore');
+var IgnoredOrgsStore = require('../stores/IgnoredOrgsStore');
 var ListGroup = require('react-bootstrap/lib/ListGroup');
 var DropdownButton = require('react-bootstrap/lib/DropdownButton');
 var MenuItem = require('react-bootstrap/lib/MenuItem');
@@ -26950,40 +26964,62 @@ var Repo = React.createClass({ displayName: 'Repo',
     return 'https://github.com/' + repo.fullName;
   },
 
+  renderIgnoreRepoLabel: function renderIgnoreRepoLabel(repo) {
+    if (IgnoredReposStore.isIgnoredRepo(repo)) {
+      return 'Unignore ' + repo.fullName;
+    } else {
+      return 'Ignore ' + repo.fullName;
+    }
+  },
+
+  renderIgnoreOrgLabel: function renderIgnoreOrgLabel(org) {
+    if (IgnoredOrgsStore.isIgnoredOrg(org)) {
+      return 'Unignore ' + org.login;
+    } else {
+      return 'Ignore ' + org.login;
+    }
+  },
+
+  renderMenu: function renderMenu() {
+    var repo = this.props.repo;
+
+    if (!repo.owner) {
+      //org, not repo!
+      return React.createElement(DropdownButton, { title: '', bsSize: 'xsmall', pullRight: true }, React.createElement(MenuItem, { onClick: this.toggleIgnoreOrg, eventKey: '1' }, this.renderIgnoreOrgLabel(repo)));
+    } else {
+      return React.createElement(DropdownButton, { title: '', bsSize: 'xsmall', pullRight: true }, React.createElement(MenuItem, { onClick: this.toggleIgnoreRepo, eventKey: '1' }, this.renderIgnoreRepoLabel(repo)), React.createElement(MenuItem, { onClick: this.toggleIgnoreOrg, eventKey: '1' }, this.renderIgnoreOrgLabel(repo.owner)));
+    }
+  },
+
   renderTitle: function renderTitle() {
     var repo = this.props.repo;
 
-    var title = repo.name;
+    var title = repo.name || repo.login;
     if (repo._loading) {
       title += ' (Loading...)';
     }
 
-    /*return (<h3><a href={this.url()}>{title}</a>
-       <DropdownButton title='' bsSize='xsmall' pullRight>
-        <MenuItem onClick={this.ignoreRepo} eventKey='1'>Ignore {repo.fullName}</MenuItem>
-        <MenuItem onClick={this.ignoreOrg} eventKey='2'>Ignore organization</MenuItem>
-      </DropdownButton>
-     </h3>)*/
-
-    return React.createElement('h3', null, React.createElement('a', { href: this.url() }, title));
+    return React.createElement('h3', null, React.createElement('a', { href: this.url() }, title), this.renderMenu());
   },
 
-  ignoreRepo: function ignoreRepo() {
-    ActionCreator.ignoreRepo(this.props.repo);
+  toggleIgnoreRepo: function toggleIgnoreRepo() {
+    ActionCreator.toggleIgnoreRepo(this.props.repo);
     return false;
   },
 
-  ignoreOrg: function ignoreOrg() {
-    ActionCreator.ignoreOrg(this.props.repo);
+  toggleIgnoreOrg: function toggleIgnoreOrg() {
+    ActionCreator.toggleIgnoreOrg(this.props.repo.owner ? this.props.repo.owner : this.props.repo);
     return false;
   },
 
   render: function render() {
-    var repo = this.props.repo;
+    var _props = this.props;
+    var repo = _props.repo;
+    var empty = _props.empty;
 
     var title = this.renderTitle();
 
-    if (repo._tooOld) {
+    if (empty) {
       return React.createElement(Panel, { header: title }, React.createElement(ListGroup, { fill: true }));
     } else {
       return React.createElement(Panel, { header: title }, React.createElement(ListGroup, { fill: true }, repo._events.map(function (evnt) {
@@ -26995,7 +27031,7 @@ var Repo = React.createClass({ displayName: 'Repo',
 
 module.exports = Repo;
 
-},{"../actions/RepoActionCreators":200,"./RepoEvent.jsx":205,"react":199,"react-bootstrap/lib/DropdownButton":25,"react-bootstrap/lib/ListGroup":32,"react-bootstrap/lib/MenuItem":34,"react-bootstrap/lib/Panel":36}],204:[function(require,module,exports){
+},{"../actions/RepoActionCreators":200,"../stores/IgnoredOrgsStore":212,"../stores/IgnoredReposStore":213,"./RepoEvent.jsx":205,"react":199,"react-bootstrap/lib/DropdownButton":25,"react-bootstrap/lib/ListGroup":32,"react-bootstrap/lib/MenuItem":34,"react-bootstrap/lib/Panel":36}],204:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -27196,11 +27232,14 @@ var React = require('react');
 var Repo = require('./Repo.jsx');
 var Alert = require('react-bootstrap/lib/Alert');
 
-function currentRepos(repo) {
-  return !(repo._tooOld || repo._ignoredRepo);
-}
-function outdatedRepos(repo) {
-  return repo._tooOld;
+function sortByName(a, b) {
+  var aname = (a.name || a.login).toLowerCase();
+  var bname = (b.name || b.login).toLowerCase();
+  if (aname < bname) {
+    return -1;
+  }if (aname > bname) {
+    return 1;
+  }return 0;
 }
 
 var RepoList = React.createClass({ displayName: 'RepoList',
@@ -27212,17 +27251,41 @@ var RepoList = React.createClass({ displayName: 'RepoList',
 
   componentDidMount: function componentDidMount() {},
 
+  currentReposFilter: function currentReposFilter(repo) {
+    return !this.outdatedReposFilter(repo) && !this.ignoredReposFilter(repo) && !this.ignoredOrgsFilter(repo.owner);
+  },
+
+  outdatedReposFilter: function outdatedReposFilter(repo) {
+    return repo._tooOld && !this.ignoredReposFilter(repo) && !this.ignoredOrgsFilter(repo.owner);
+  },
+
+  ignoredReposFilter: function ignoredReposFilter(repo) {
+    var ignoredRepos = this.props.ignoredRepos;
+
+    return ignoredRepos.indexOf(repo.id) > -1;
+  },
+
+  ignoredOrgsFilter: function ignoredOrgsFilter(org) {
+    var ignoredOrgs = this.props.ignoredOrgs;
+
+    return ignoredOrgs.indexOf(org.id) > -1;
+  },
+
   render: function render() {
-    var repos = this.props.repos;
+    var _props = this.props;
+    var repos = _props.repos;
+    var orgs = _props.orgs;
 
     if (repos.length === 0) {
       return React.createElement(Alert, { bsStyle: 'warning' }, React.createElement('strong', null, 'Loading repos'));
     }
 
-    return React.createElement('div', null, React.createElement('div', { className: 'repo-grid' }, repos.filter(currentRepos).map(function (repo) {
+    return React.createElement('div', null, React.createElement('div', { className: 'repo-grid' }, repos.filter(this.currentReposFilter).map(function (repo) {
       return React.createElement('div', { className: 'repo-grid-item', key: repo.id, style: repo._style }, React.createElement(Repo, { repo: repo }));
-    })), React.createElement('h3', { className: 'subsection' }, 'Outdated repos'), React.createElement('div', { className: 'repo-grid' }, repos.filter(outdatedRepos).map(function (repo) {
-      return React.createElement('div', { className: 'repo-grid-item', key: repo.id, style: repo._style }, React.createElement(Repo, { repo: repo }));
+    })), React.createElement('h3', { className: 'subsection' }, 'Outdated repos'), React.createElement('div', { className: 'repo-grid' }, repos.filter(this.outdatedReposFilter).sort(sortByName).map(function (repo) {
+      return React.createElement('div', { className: 'repo-grid-item', key: repo.id }, React.createElement(Repo, { repo: repo, empty: true }));
+    })), React.createElement('h3', { className: 'subsection' }, 'Ignored repos'), React.createElement('div', { className: 'repo-grid' }, repos.filter(this.ignoredReposFilter).concat(orgs.filter(this.ignoredOrgsFilter)).sort(sortByName).map(function (repo) {
+      return React.createElement('div', { className: 'repo-grid-item', key: repo.id }, React.createElement(Repo, { repo: repo, empty: true }));
     })));
   }
 });
@@ -27308,8 +27371,8 @@ module.exports = {
     INCOMPLETE_TASK: null,
     SET_TOKEN: null,
     REFRESH_REPOS: null,
-    IGNORE_REPO: null,
-    IGNORE_ORG: null
+    TOGGLE_IGNORE_REPO: null,
+    TOGGLE_IGNORE_ORG: null
   }),
 
   ActionSources: keyMirror({
@@ -27380,6 +27443,166 @@ var AppDispatcher = require('../dispatchers/AppDispatcher');
 var Constants = require('../constants/AppConstants');
 var BaseStore = require('./BaseStore');
 var assign = require('object-assign');
+
+var _ignoredOrgs = window.localStorage.getItem('ignoredOrgs') ? JSON.parse(window.localStorage.getItem('ignoredOrgs')) : [];
+
+function assureNumber(num) {
+  if (typeof num !== 'number') {
+    throw new Error('Expected a number');
+  }
+}
+
+// Facebook style store creation.
+var IgnoredOrgsStore = assign({}, BaseStore, {
+
+  // public methods used by Controller-View to operate on data
+  getAll: function getAll() {
+    return {
+      ignoredOrgs: _ignoredOrgs
+    };
+  },
+
+  isIgnoredOrg: function isIgnoredOrg(org) {
+    assureNumber(org.id);
+    if (_ignoredOrgs.indexOf(org.id) === -1) {
+      return false;
+    }
+    return true;
+  },
+
+  addToIgnoredOrgs: function addToIgnoredOrgs(org) {
+    assureNumber(org.id);
+    if (!IgnoredOrgsStore.isIgnoredOrg(org)) {
+      _ignoredOrgs.push(org.id);
+      IgnoredOrgsStore.saveToLocalStorage();
+    }
+  },
+
+  removeFromIgnoredOrgs: function removeFromIgnoredOrgs(org) {
+    assureNumber(org.id);
+    if (IgnoredOrgsStore.isIgnoredOrg(org)) {
+      var index = _ignoredOrgs.indexOf(org.id);
+      if (index > -1) {
+        _ignoredOrgs.splice(index, 1);
+      }
+      IgnoredOrgsStore.saveToLocalStorage();
+    }
+  },
+
+  saveToLocalStorage: function saveToLocalStorage() {
+    window.localStorage.setItem('ignoredOrgs', JSON.stringify(_ignoredOrgs));
+  },
+
+  // register store with dispatcher, allowing actions to flow through
+  dispatcherIndex: AppDispatcher.register(function (payload) {
+    var action = payload.action;
+    var org = action.org;
+
+    switch (action.type) {
+      case Constants.ActionTypes.TOGGLE_IGNORE_ORG:
+        if (IgnoredOrgsStore.isIgnoredOrg(org)) {
+          IgnoredOrgsStore.removeFromIgnoredOrgs(org);
+        } else {
+          IgnoredOrgsStore.addToIgnoredOrgs(org);
+        }
+
+        IgnoredOrgsStore.emitChange();
+        break;
+    }
+  })
+
+});
+
+module.exports = IgnoredOrgsStore;
+
+},{"../constants/AppConstants":209,"../dispatchers/AppDispatcher":210,"./BaseStore":211,"object-assign":10}],213:[function(require,module,exports){
+'use strict';
+
+var AppDispatcher = require('../dispatchers/AppDispatcher');
+var Constants = require('../constants/AppConstants');
+var BaseStore = require('./BaseStore');
+var assign = require('object-assign');
+
+var _ignoredRepos = window.localStorage.getItem('ignoredRepos') ? JSON.parse(window.localStorage.getItem('ignoredRepos')) : [];
+
+function assureNumber(num) {
+  if (typeof num !== 'number') {
+    throw new Error('Expected a number');
+  }
+}
+
+// Facebook style store creation.
+var IgnoredReposStore = assign({}, BaseStore, {
+
+  // public methods used by Controller-View to operate on data
+  getAll: function getAll() {
+    return {
+      ignoredRepos: _ignoredRepos
+    };
+  },
+
+  isIgnoredRepo: function isIgnoredRepo(repo) {
+    assureNumber(repo.id);
+    if (_ignoredRepos.indexOf(repo.id) === -1) {
+      return false;
+    }
+    return true;
+  },
+
+  addToIgnoredRepos: function addToIgnoredRepos(repo) {
+    assureNumber(repo.id);
+    if (!IgnoredReposStore.isIgnoredRepo(repo)) {
+      _ignoredRepos.push(repo.id);
+      IgnoredReposStore.saveToLocalStorage();
+    }
+  },
+
+  removeFromIgnoredRepos: function removeFromIgnoredRepos(repo) {
+    assureNumber(repo.id);
+    if (IgnoredReposStore.isIgnoredRepo(repo)) {
+      var index = _ignoredRepos.indexOf(repo.id);
+      if (index > -1) {
+        _ignoredRepos.splice(index, 1);
+      }
+      IgnoredReposStore.saveToLocalStorage();
+    }
+  },
+
+  saveToLocalStorage: function saveToLocalStorage() {
+    window.localStorage.setItem('ignoredRepos', JSON.stringify(_ignoredRepos));
+  },
+
+  // register store with dispatcher, allowing actions to flow through
+  dispatcherIndex: AppDispatcher.register(function (payload) {
+    var action = payload.action;
+    var repo = action.repo;
+
+    switch (action.type) {
+      case Constants.ActionTypes.TOGGLE_IGNORE_REPO:
+        if (IgnoredReposStore.isIgnoredRepo(repo)) {
+          IgnoredReposStore.removeFromIgnoredRepos(repo);
+        } else {
+          IgnoredReposStore.addToIgnoredRepos(repo);
+        }
+
+        IgnoredReposStore.emitChange();
+        break;
+    }
+  })
+
+});
+
+module.exports = IgnoredReposStore;
+
+},{"../constants/AppConstants":209,"../dispatchers/AppDispatcher":210,"./BaseStore":211,"object-assign":10}],214:[function(require,module,exports){
+'use strict';
+
+var AppDispatcher = require('../dispatchers/AppDispatcher');
+var Constants = require('../constants/AppConstants');
+var BaseStore = require('./BaseStore');
+var assign = require('object-assign');
+var IgnoredReposStore = require('./IgnoredReposStore');
+var IgnoredOrgsStore = require('./IgnoredOrgsStore');
 var Octokat = require('octokat');
 var moment = require('moment');
 var debounce = require('debounce');
@@ -27402,7 +27625,6 @@ var _orgs = [];
 var _err = null;
 var _token = window.localStorage.getItem('gh_token') || '';
 var _login = window.localStorage.getItem('gh_login') || '';
-var _ignoredRepos = window.localStorage.getItem('ignoredRepos') || [];
 var _lastToken = null;
 var refreshTimeout = undefined;
 var _now = undefined;
@@ -27421,6 +27643,11 @@ var REFRESH_INTERVAL_MS = 5 * 60 * 1000; //5 minutes
 function assureString(str) {
   if (typeof str !== 'string') {
     throw new Error('Expected a string');
+  }
+}
+function assureNumber(num) {
+  if (typeof num !== 'number') {
+    throw new Error('Expected a number');
   }
 }
 
@@ -27464,6 +27691,10 @@ function getAllRepos(res) {
 
 function getAllOrgs(res) {
   res.forEach(function (org) {
+    if (IgnoredOrgsStore.isIgnoredOrg(org)) {
+      return;
+    }
+
     org.repos.fetch({
       per_page: REPOS_PER_PAGE
     }).then(getAllRepos);
@@ -27509,9 +27740,14 @@ function updateAllRepoEvents() {
 function updateRepoEvents(repo) {
   assureString(repo.updatedAt);
 
+  if (IgnoredReposStore.isIgnoredRepo(repo)) {
+    return;
+  }
+
   if (repo._loading) {
     return;
   }
+
   if (repo.lastUpdatedAt) {
     assureString(repo.lastUpdatedAt);
     if (repo.lastUpdatedAt >= repo.updatedAt) {
@@ -27636,10 +27872,11 @@ var RepoStore = assign({}, BaseStore, {
   // register store with dispatcher, allowing actions to flow through
   dispatcherIndex: AppDispatcher.register(function (payload) {
     var action = payload.action;
+    var text = action.text;
 
     switch (action.type) {
       case Constants.ActionTypes.SET_TOKEN:
-        var text = action.text.trim();
+        text = text.trim();
         if (text !== '') {
           _token = text;
           if (window.localStorage.getItem('gh_token') !== _token) {
@@ -27661,4 +27898,4 @@ module.exports = RepoStore;
 
 // debugger;
 
-},{"../constants/AppConstants":209,"../dispatchers/AppDispatcher":210,"./BaseStore":211,"debounce":4,"moment":9,"object-assign":10,"octokat":19}]},{},[1]);
+},{"../constants/AppConstants":209,"../dispatchers/AppDispatcher":210,"./BaseStore":211,"./IgnoredOrgsStore":212,"./IgnoredReposStore":213,"debounce":4,"moment":9,"object-assign":10,"octokat":19}]},{},[1]);

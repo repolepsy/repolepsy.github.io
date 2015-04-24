@@ -26923,6 +26923,7 @@ var Repo = React.createClass({ displayName: 'Repo',
   getInitialState: function getInitialState() {
     return {
       lastUpdatedAt: '',
+      lastLoading: undefined,
       repo: {
         name: '',
         _events: []
@@ -26931,12 +26932,13 @@ var Repo = React.createClass({ displayName: 'Repo',
   },
 
   shouldComponentUpdate: function shouldComponentUpdate(nextProps, nextState) {
-    return this.state.lastUpdatedAt != nextProps.repo.updatedAt;
+    return this.state.lastUpdatedAt != nextProps.repo.updatedAt || this.state.lastLoading != nextProps.repo._loading;
   },
 
   componentDidUpdate: function componentDidUpdate() {
     this.setState({
-      lastUpdatedAt: this.props.repo.updatedAt
+      lastUpdatedAt: this.props.repo.updatedAt,
+      lastLoading: this.props.repo._loading
     });
   },
 

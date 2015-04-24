@@ -27284,7 +27284,7 @@ var RepoList = React.createClass({ displayName: 'RepoList',
       return React.createElement('div', { className: 'repo-grid-item', key: repo.id, style: repo._style }, React.createElement(Repo, { repo: repo }));
     })), React.createElement('h3', { className: 'subsection' }, 'Outdated repos'), React.createElement('div', { className: 'repo-grid' }, repos.filter(this.outdatedReposFilter).sort(sortByName).map(function (repo) {
       return React.createElement('div', { className: 'repo-grid-item', key: repo.id }, React.createElement(Repo, { repo: repo, empty: true }));
-    })), React.createElement('h3', { className: 'subsection' }, 'Ignored repos'), React.createElement('div', { className: 'repo-grid' }, repos.filter(this.ignoredReposFilter).concat(orgs.filter(this.ignoredOrgsFilter)).sort(sortByName).map(function (repo) {
+    })), React.createElement('h3', { className: 'subsection' }, 'Ignored repos & orgs'), React.createElement('div', { className: 'repo-grid' }, repos.filter(this.ignoredReposFilter).concat(orgs.filter(this.ignoredOrgsFilter)).sort(sortByName).map(function (repo) {
       return React.createElement('div', { className: 'repo-grid-item', key: repo.id }, React.createElement(Repo, { repo: repo, empty: true }));
     })));
   }

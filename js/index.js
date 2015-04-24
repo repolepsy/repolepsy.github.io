@@ -26778,6 +26778,12 @@ module.exports = {
     });
   },
 
+  refreshRepos: function refreshRepos() {
+    AppDispatcher.handleViewAction({
+      type: Constants.ActionTypes.REFRESH_REPOS
+    });
+  },
+
   ignoreRepo: function ignoreRepo(repo) {
     console.log('ignoreRepo', repo);
     AppDispatcher.handleViewAction({
@@ -26835,8 +26841,7 @@ module.exports = {
 
 var React = require('react');
 var RepoStore = require('../stores/RepoStore');
-var TodoStore = require('../stores/TodoStore');
-var ActionCreator = require('../actions/TodoActionCreators');
+var ActionCreator = require('../actions/RepoActionCreators');
 var Button = require('react-bootstrap/lib/Button');
 var Jumbotron = require('react-bootstrap/lib/Jumbotron');
 var TaskList = require('./TaskList.jsx');
@@ -26847,44 +26852,46 @@ var App = React.createClass({ displayName: 'App',
 
   getInitialState: function getInitialState() {
     var data = {
-      RepoStore: RepoStore.getAll(),
-      tasks: []
+      refreshText: '5 minutes',
+      RepoStore: RepoStore.getAll()
     };
     return data;
   },
 
   _onChange: function _onChange() {
     this.setState({
-      RepoStore: RepoStore.getAll(),
-      tasks: TodoStore.getAll()
+      RepoStore: RepoStore.getAll()
     });
   },
 
   componentDidMount: function componentDidMount() {
-    TodoStore.addChangeListener(this._onChange);
     RepoStore.addChangeListener(this._onChange);
   },
 
   componentWillUnmount: function componentWillUnmount() {
-    TodoStore.removeChangeListener(this._onChange);
     RepoStore.removeChangeListener(this._onChange);
   },
 
-  handleAddNewClick: function handleAddNewClick(e) {
-    var title = prompt('Enter task title:');
-    if (title) {
-      ActionCreator.addItem(title);
-    }
+  handleRefreshClick: function handleRefreshClick(e) {
+    ActionCreator.refreshRepos();
+    e.preventDefault();
+    e.target.blur();
   },
 
-  handleClearListClick: function handleClearListClick(e) {
-    ActionCreator.clearList();
+  handleRefreshOver: function handleRefreshOver(e) {
+    this.setState({
+      refreshText: 'refresh now'
+    });
+  },
+
+  handleRefreshOut: function handleRefreshOut(e) {
+    this.setState({
+      refreshText: '5 minutes'
+    });
   },
 
   render: function render() {
-    var _state = this.state;
-    var tasks = _state.tasks;
-    var RepoStore = _state.RepoStore;
+    var RepoStore = this.state.RepoStore;
 
     if (RepoStore.err) {
       if (RepoStore.err.message = 'Bad credentials') {
@@ -26894,14 +26901,14 @@ var App = React.createClass({ displayName: 'App',
       }
     }
 
-    return React.createElement('div', { className: 'container' }, React.createElement(Jumbotron, null, React.createElement('h1', null, 'Repolepsy'), React.createElement('p', null, 'Recent changes in all your repos, refreshed every 5 minutes (or when you press F5)')), React.createElement(RepoList, { repos: RepoStore.repos }));
+    return React.createElement('div', { className: 'container' }, React.createElement(Jumbotron, null, React.createElement('h1', null, 'Repolepsy'), React.createElement('p', null, 'Recent changes in all your repos, refreshed every ', React.createElement('a', { href: '/', className: 'refresh-repos', onMouseEnter: this.handleRefreshOver, onMouseLeave: this.handleRefreshOut, onClick: this.handleRefreshClick }, this.state.refreshText))), React.createElement(RepoList, { repos: RepoStore.repos }));
   }
 
 });
 
 module.exports = App;
 
-},{"../actions/TodoActionCreators":201,"../stores/RepoStore":212,"../stores/TodoStore":213,"./RepoError.jsx":204,"./RepoList.jsx":206,"./TaskList.jsx":208,"react":199,"react-bootstrap/lib/Button":22,"react-bootstrap/lib/Jumbotron":31}],203:[function(require,module,exports){
+},{"../actions/RepoActionCreators":200,"../stores/RepoStore":212,"./RepoError.jsx":204,"./RepoList.jsx":206,"./TaskList.jsx":208,"react":199,"react-bootstrap/lib/Button":22,"react-bootstrap/lib/Jumbotron":31}],203:[function(require,module,exports){
 'use strict';
 
 var React = require('react');
@@ -26920,6 +26927,17 @@ var Repo = React.createClass({ displayName: 'Repo',
         _events: []
       }
     };
+  },
+
+  shouldComponentUpdate: function shouldComponentUpdate(nextProps, nextState) {
+    if (nextProps.repo && nextProps.repo._events && nextProps.repo._events[0] && nextProps.repo._events[0].createdAt) {
+      if (this.props.repo && this.props.repo._events && this.props.repo._events[0] && this.props.repo._events[0].createdAt) {
+        if (nextProps.repo._events[0].createdAt == this.props.repo._events[0].createdAt) {
+          return false;
+        }
+      }
+    }
+    return true;
   },
 
   componentDidMount: function componentDidMount() {},
@@ -27109,6 +27127,10 @@ var RepoEvent = React.createClass({ displayName: 'RepoEvent',
     return 'https://github.com/' + repo.fullName;
   },
 
+  escapeChars: function escapeChars(txt) {
+    return txt.replace(/\:\//, ': /');
+  },
+
   render: function render() {
     var evnt = this.props.evnt;
 
@@ -27122,7 +27144,7 @@ var RepoEvent = React.createClass({ displayName: 'RepoEvent',
         break;
 
       case 'IssueCommentEvent':
-        return React.createElement(ListGroupItem, null, React.createElement('div', { className: 'ellipsis' }, React.createElement('a', { href: this.getActorUrl() }, evnt.actor.login), ' ', evnt.payload.action, ' comment ', React.createElement('a', { href: this.getCommentUrl() }, this.emojify(evnt.payload.comment.body, { emojiType: 'emojione' }))));
+        return React.createElement(ListGroupItem, null, React.createElement('div', { className: 'ellipsis' }, React.createElement('a', { href: this.getActorUrl() }, evnt.actor.login), ' ', evnt.payload.action, ' comment ', React.createElement('a', { href: this.getCommentUrl() }, this.emojify(this.escapeChars(evnt.payload.comment.body), { emojiType: 'emojione' }))));
         break;
 
       case 'IssuesEvent':
@@ -27276,6 +27298,7 @@ module.exports = {
     COMPLETE_TASK: null,
     INCOMPLETE_TASK: null,
     SET_TOKEN: null,
+    REFRESH_REPOS: null,
     IGNORE_REPO: null,
     IGNORE_ORG: null
   }),
@@ -27369,6 +27392,7 @@ Object.values(_repos).forEach(function (repo) {
 var _orgs = [];
 var _err = null;
 var _token = window.localStorage.getItem('gh_token') || '';
+var _login = 'warpech';
 var _ignoredRepos = window.localStorage.getItem('ignoredRepos') || [];
 var _lastToken = null;
 var refreshTimeout = undefined;
@@ -27381,6 +27405,7 @@ var octo;
 var REPOS_PER_PAGE = 100; //can be safely changed to 100
 var ORGS_PER_PAGE = 100; //can be safely changed to 100
 var EVENTS_PER_PAGE = 20;
+var USER_EVENTS_PER_PAGE = 300;
 var MAX_EVENTS = 5; //max events to display
 var REFRESH_INTERVAL_MS = 5 * 60 * 1000; //5 minutes
 
@@ -27397,6 +27422,7 @@ function getAllRepos(res) {
 
   res.forEach(function (repo) {
     var found = _repos[repo.fullName];
+    assureString(repo.name);
 
     if (repo.name == 'Barcodes') {}
 
@@ -27407,6 +27433,10 @@ function getAllRepos(res) {
     }
 
     found.updatedAt = repo.updatedAt.toISOString();
+    found.pushedAt = repo.pushedAt.toISOString();
+    if (found.pushedAt > found.updatedAt) {
+      found.updatedAt = found.pushedAt;
+    }
 
     updateRepoEvents(found);
   });
@@ -27431,6 +27461,30 @@ function getAllOrgs(res) {
   } else {
     updateAllRepoEvents();
   }
+}
+
+function getAllEvents(res) {
+  res.forEach(function (evnt) {
+    evnt.createdAt = evnt.createdAt.toISOString();
+
+    var repo = _repos[evnt.repo.name];
+
+    if (!repo) {
+      return;
+    }
+
+    assureString(repo.name);
+    if (repo.updatedAt == undefined) {
+      repo.updatedAt = evnt.createdAt; //hack?
+    }
+    assureString(repo.updatedAt);
+
+    if (evnt.createdAt > repo.updatedAt) {
+      repo.updatedAt = evnt.createdAt;
+    }
+
+    updateRepoEvents(repo);
+  });
 }
 
 //Phase 2 - refresh repo events
@@ -27501,6 +27555,7 @@ function refreshUI() {
 }
 
 function loadData() {
+  console.info('Loading data');
   _now = moment();
 
   if (_lastToken != _token) {
@@ -27517,9 +27572,13 @@ function loadData() {
     RepoStore.emitChange();
   });
 
-  octo.user.orgs.fetch({
-    per_page: ORGS_PER_PAGE
-  }).then(getAllOrgs);
+  octo.users(_login).receivedEvents.fetch({
+    per_page: USER_EVENTS_PER_PAGE
+  }).then(getAllEvents);
+
+  octo.users(_login).events.fetch({
+    per_page: USER_EVENTS_PER_PAGE
+  }).then(getAllEvents);
 
   clearTimeout(refreshTimeout);
   refreshTimeout = setTimeout(loadData, REFRESH_INTERVAL_MS);
@@ -27532,7 +27591,6 @@ var RepoStore = assign({}, BaseStore, {
   // public methods used by Controller-View to operate on data
   getAll: function getAll() {
     if (_lastToken !== _token) {
-      console.info('reloading data');
       loadData();
     }
 
@@ -27559,6 +27617,10 @@ var RepoStore = assign({}, BaseStore, {
           RepoStore.emitChange();
         }
         break;
+
+      case Constants.ActionTypes.REFRESH_REPOS:
+        loadData();
+        break;
     }
   })
 
@@ -27568,83 +27630,4 @@ module.exports = RepoStore;
 
 // debugger;
 
-},{"../constants/AppConstants":209,"../dispatchers/AppDispatcher":210,"./BaseStore":211,"debounce":4,"moment":9,"object-assign":10,"octokat":19}],213:[function(require,module,exports){
-'use strict';
-
-var AppDispatcher = require('../dispatchers/AppDispatcher');
-var Constants = require('../constants/AppConstants');
-var BaseStore = require('./BaseStore');
-var assign = require('object-assign');
-
-// data storage
-var _data = [];
-
-// add private functions to modify data
-function addItem(title) {
-  var completed = arguments[1] === undefined ? false : arguments[1];
-
-  _data.push({
-    title: title, completed: completed
-  });
-}
-
-function completeItem(task) {
-  task.completed = true;
-}
-
-function incompleteItem(task) {
-  task.completed = false;
-}
-
-function removeItem(task) {
-  for (var i = 0; i < _data.length; i++) {
-    if (_data[i] == task) {
-      _data.splice(i, 1);
-      return;
-    }
-  }
-}
-
-// Facebook style store creation.
-var TodoStore = assign({}, BaseStore, {
-
-  // public methods used by Controller-View to operate on data
-  getAll: function getAll() {
-    return _data;
-  },
-
-  // register store with dispatcher, allowing actions to flow through
-  dispatcherIndex: AppDispatcher.register(function (payload) {
-    var action = payload.action;
-
-    switch (action.type) {
-      case Constants.ActionTypes.ADD_TASK:
-        var text = action.text.trim();
-        // NOTE: if this action needs to wait on another store:
-        // AppDispatcher.waitFor([OtherStore.dispatchToken]);
-        // For details, see: http://facebook.github.io/react/blog/2014/07/30/flux-actions-and-the-dispatcher.html#why-we-need-a-dispatcher
-        if (text !== '') {
-          addItem(text);
-          TodoStore.emitChange();
-        }
-        break;
-
-      // add more cases for other actionTypes...
-
-      case Constants.ActionTypes.COMPLETE_TASK:
-        completeItem(action.task);
-        TodoStore.emitChange();
-        break;
-
-      case Constants.ActionTypes.INCOMPLETE_TASK:
-        incompleteItem(action.task);
-        TodoStore.emitChange();
-        break;
-    }
-  })
-
-});
-
-module.exports = TodoStore;
-
-},{"../constants/AppConstants":209,"../dispatchers/AppDispatcher":210,"./BaseStore":211,"object-assign":10}]},{},[1]);
+},{"../constants/AppConstants":209,"../dispatchers/AppDispatcher":210,"./BaseStore":211,"debounce":4,"moment":9,"object-assign":10,"octokat":19}]},{},[1]);

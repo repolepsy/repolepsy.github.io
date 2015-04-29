@@ -27068,7 +27068,7 @@ var RepoError = React.createClass({ displayName: 'RepoError',
       bsStyle: 'primary',
       backdrop: false,
       animation: false,
-      onRequestHide: this.handleHide }, React.createElement('div', { className: 'modal-body' }, React.createElement('p', null, 'To display your GitHub repositiories you need to generate a' + ' ' + 'new ', React.createElement('a', { href: 'https://github.com/settings/applications' }, 'Personal Access Token'), ' and provide it below.'), React.createElement('p', null, 'Permissions needed: ', React.createElement('strong', null, 'repo'), ', ', React.createElement('strong', null, 'user')), React.createElement(Input, {
+      onRequestHide: this.handleHide }, React.createElement('div', { className: 'modal-body' }, React.createElement('p', null, 'To display your GitHub repositiories you need to generate a' + ' ' + 'new ', React.createElement('a', { target: '_blank', href: 'https://github.com/settings/tokens' }, 'Personal Access Token'), ' and provide it below.'), React.createElement('p', null, 'Permissions needed: ', React.createElement('strong', null, 'repo'), ', ', React.createElement('strong', null, 'user')), React.createElement(Input, {
       type: 'text',
       value: this.state.token,
       placeholder: 'Paste token here',
